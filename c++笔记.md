@@ -1506,9 +1506,286 @@ int main()
 }
 ```
 
+## 15.简易对象池：
+
+```c++
+#include <iostream>
+
+
+template <typename T>
+
+class Queue
+{
+public:
+    Queue()
+    {
+        _front = _rear = new QueueItem();
+    }
+    ~Queue()
+    {
+        QueueItem *cur = _front;
+        while(cur != nullptr)
+        {
+            _front = _front->_pnext;
+            delete cur;
+            cur = _front;
+        }
+        _front = _rear = nullptr;
+    }
+
+    void push(const T &val)
+    {
+        QueueItem *p = new QueueItem(val);
+        _rear->_pnext = p;
+        _rear = p;
+    }
+    void pop()
+    {
+        if(empty()) return;
+        QueueItem *p = _front->_pnext;
+        _front->_pnext = p->_pnext;
+        if(_front->_pnext == nullptr) _rear = _front;
+        delete p;
+    }
+    T front() const
+    {
+        return _front->_pnext->_data;
+    }
+    bool empty() const
+    {
+        return _front == _rear;
+    }
+private:
+    struct QueueItem
+    {
+        QueueItem(T data = T()) 
+            : _data(data)
+            , _pnext(nullptr)
+        {}
+        void * operator new(size_t size)
+        {
+            (void)size;
+            if(_itemPool == nullptr)
+            {
+                _itemPool = (QueueItem *)::new char[sizeof(QueueItem) * POOL_ITEM_SIZE];
+                QueueItem *p = _itemPool;
+                for( ;p < _itemPool + POOL_ITEM_SIZE - 1;++p)
+                {
+                    p->_pnext = p + 1;
+                }
+                p->_pnext = nullptr;
+            }
+            QueueItem *cur = _itemPool;
+            _itemPool = _itemPool->_pnext;
+            return cur;
+        }
+        void operator delete(void *ptr)
+        {
+            QueueItem *p = (QueueItem *)ptr;
+            p->_pnext = _itemPool;
+            _itemPool = p;
+        }
+        T _data;
+        QueueItem *_pnext;
+        static QueueItem *_itemPool;
+        static const int POOL_ITEM_SIZE = 10000;
+    };
+
+    QueueItem *_front;      //队头
+    QueueItem *_rear;       //队尾
+};
+template <typename T>
+typename Queue<T>::QueueItem *Queue<T>
+            ::QueueItem::_itemPool = nullptr;
+
+
+int main()
+{
+    Queue<int> q;
+    for(int i=0;i<10;i++)
+    {
+        q.push(rand() % 100 + 1);
+        q.pop();
+    }
+    std::cout<<q.empty()<<"\n";
+    // while(!q.empty())
+    // {
+    //     std::cout<<q.front()<<"\n";
+    //     q.pop();
+    // }
+    // std::cout<<"\n";
+    return 0;
+}
+```
 
 
 
+## 16.继承的本质和原理
+
+### 		1).继承的本质
+
+​			a.代码的复用
+
+​			b.
+
+### 		2).类和类之间的关系：
+
+​			组合：a part of..一部分的关系
+​					继承:a kind of......一种的关系
+
+### 		3).继承关系：
+
+3) ![image-20261116152034502](C:\Users\zhang\AppData\Roaming\Typora\typora-user-images\image-20261116152034502.png)
+
+1. **基类的 `private` 成员永远是不可见的**：无论你用哪种方式继承，基类的 `private` 成员在派生类中都无法直接访问（只能通过基类提供的 `public` 或 `protected` 成员函数去访问）。
+2. **“就低不就高”原则**：派生类内部看到的权限，永远是 **`基类原本权限`** 和 **`继承方式`** 中**级别更低（限制更严）**的那一个。
+3. 外部只能访问对象public的成员，protected和private的成员无法直接访问
+4. 在继承结构中，派生类从基类可以继承过来private的成员，但是派生类却无法直接访问
+5. protected和private的区别？在基类中定义的成员，想被派生类访问，但是不想被外部访问，
+   那么在基类中，把相关成员定义成protected保护的；如果派生类和外部都不打算访问，那么
+   在基类中，就把相关成员定义成private私有的。
+
+
+
+### 		4）.默认的继承方式是什么?
+
+​				要看派生类是用class定义的，还是struct定义的?
+​						class定义派生类，默认继承方式就是private私有的
+​						struct定义派生类，默认继承方式就是public私有的
+
+
+
+## 17.派生类的构造过程
+
+### 		1).派生类怎么初始化从基类继承来的成员变量呢?
+
+​			**派生类从继承可以继承来所有的成员(变量和方法)，除过构造函数和析构函数**
+
+​			答：通过调用基类相应的构造函数来初始化
+
+### 		2).派生类从基类继承来的成员的初始化和清理由谁负责呢？
+
+​			**派生类的构造函数和析构函数，负责初始化和清理派生类部分**
+
+​			答：是由基类的构造和析构函数来负责
+
+### 		3).派生类对象构造和析构的过程是: 
+
+​			答：
+
+​			1.派生类调用基类的构造函数，初始化从基类承来的成员
+​					2.调用派生类自己的构造函数，初始化派生类自己特有的成员
+​						.....派生类对象的作用域到期了
+​					3.调用派生类的析构函数，释放派生类成员可能占用的外部资源（堆内存，文件)
+​					4.调用基类的析构函数，释放派生类内存中，从基类继承来的成员可能占用的外部资源 (堆内存，						文件)
+
+
+
+## 18.重载、覆盖、隐藏
+
+1.重载关系
+
+​	**一组函数要重载，必须处在同一个作用域当中；而且函数名字相同，参数列表不同**
+
+2.隐藏的关系
+
+​	**在继承结构当中，派生类的同名成员，把基类的同名成员给隐藏调用了**
+
+ 
+
+```c++
+#include <iostream>
+
+class Base 
+{
+public:
+    Base(int date = 10) :ma(date)
+    {
+        std::cout<<"Base()"<<"\n";
+    }
+    void show() { std::cout << "Base::show()" << std::endl; }
+    void show(int) { std::cout << "Base::show(int)" << std::endl; }
+    ~Base()
+    {
+        std::cout<<"~Base()"<<"\n";
+    }
+protected:
+    int ma;
+};
+
+class Derive : public Base
+{
+public:
+    Derive(int date = 20) 
+        : Base(date) 
+        , mb(date)
+    {
+        std::cout<<"Derive()"<<"\n";
+    }
+        void show() { std::cout << "Derive::show()" << std::endl; }
+
+    ~Derive()
+    {
+        std::cout<<"~Derive()"<<"\n";
+    }
+private:
+    int mb;
+};
+int main()
+{
+    Base b;
+    Derive d;
+
+    // 基类对象b <- 派生类对象d        类型从下到上的转换  Y
+    b = d;
+
+    //派生类对象d <- 基类对象b         类型从上到下的转换  N
+    // d = b;
+
+    //基类指针（引用）<- 派生类对象     类型从下到上的转换  Y
+    Base *pb = &d;
+
+    //派生类指针 (引用) <- 基类对象     类型从上到下的转换  N
+    Derive *pd = &b;  
+
+    //总结：在继承结构中进行上下的类型转换，默认只支持从下到上的类型的转换
+    return 0;
+}
+```
+
+
+
+
+
+19.静态绑定和动态绑定
+
+
+
+20  .多态 vfptr和vftable
+
+
+
+21.抽象类的设计原理
+
+
+
+22.多重继承以及问题
+
+
+
+23.虚基类 vbptr和vbtable
+
+
+
+24.RTTI
+
+
+
+25.C++四种类型强转
+
+
+
+26.继承多态常见笔试面试题分享
 
 
 
