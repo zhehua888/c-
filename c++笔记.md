@@ -1759,7 +1759,7 @@ int main()
 
 19.静态绑定和动态绑定
 
-
+1.
 
 20  .多态 vfptr和vftable
 
