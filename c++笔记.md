@@ -1624,9 +1624,8 @@ int main()
 
 ### 		1).继承的本质
 
-​			a.代码的复用
-
-​			b.
+1.可以做代码的复用 
+		2.在基类中给所有派生类提供统一的虚函数接口，让派生类进行重写，然后就可以使用多态了
 
 ### 		2).类和类之间的关系：
 
@@ -1838,35 +1837,249 @@ int main()
 
 ### 			3).是不是虚函数的调用一定是动态绑定？
 
-​			
+​			在类的构造函数当中，调用虚函数，也是静态绑定（构造函数中调用其它函数（虚），不会发生					动态绑定，应为在构造函数时没有对象生成
 
-​			
-
-20  .多态 vfptr和vftable
+​			如果不是通过指针或引用调用虚函数，那么就是静态绑定
 
 
 
-21.抽象类的设计原理
+## 20.如何解释多态：
+
+1.静态（编译时期）的多态：函数重载、模板（函数模板和类模板)
+
+```c++
+		bool compare(int, int){)
+        bool compare(double, double){)
+        compare(10,20)； cal1 compare_int_int 	//在编译阶段就确定好调用的函数版本
+		compare(10.5,20.5)； cal1 compare_douoble_double //在编译阶段就确定好调用的函数调用
+            
+        template<typename T>
+        bool compare(T a, T b){)
+        compare<int>(10, 20); => int 实例化一个 compare<int>
+        compare(10.5, 20.5); => double 实例化一个 compare<double>
+```
+
+2.动态（运行时期）的多态
+			在继承结构中，基类指针（引用）指向派生类对象，通过该指针（引用）调用同名覆盖方法（虚函			数），基类指针指向哪个派生类对象，就会调用哪个派生类对象的覆盖方法，称为多态。
+
+​	多态底层是通过动态绑定来实现的，pbase->访问谁的vfptr->继续访问谁的vftable->当然调用的是对应			的派生类对象的方法了
 
 
 
-22.多重继承以及问题
+## 22.继承多态常见笔试面试题分享:
+
+本题通过手动交换对象头部的 vfptr，演示了 C++ 多态的底层实现（虚函数表），说明**多态调用取决于对象的 vfptr 而非静态类型**
+
+```c++
+class Animal
+{
+public:
+    Animal(string name) :_name(name) {)
+    //纯虚函数
+    virtual void bark() = 0;
+protected:
+    string name;
+};
+    
+//以下是动物实体类
+class Cat : publicAnimal
+{
+public:
+    Cat(string name) :Animal(name) {)
+    void bark() { cout << name << " bark: miao miao!" << endl; 
+};
+                                    
+class Dog : publicAnimal
+{
+public:
+    Dog(string name) :Animal(name) {)
+    void bark() { cout << _name << " bark: wang wang!" << endl; 
+};
+                                    
+int main()
+{
+    Animal *p1 = new Cat("加菲猫");	// vfptr -> Dog vftable
+    Animal *p2 = new Dog("二哈");		//vfptr -> Cat t vftable
+    
+    int *p11 = (int*)p1;
+    int *p22 = (int*)p2;
+    
+    int tmp = p11[0]; 		//p11[0]访问的就是Cat的前4个字节
+    p11[0] = p22[0];		//p22[0]访问的就是Dog的前4个字节
+    p22[0] = tmp;
+    
+    p1->bark;		// p1 -> Cat vfptr -> Dog vftable bark
+    p2->bark();		// p2 -> Dog vfptr -> Cat vftable bark
+    
+    delete p1;
+    delete p2;
+    
+    return 0;
+}
+```
+
+**函数体动态绑定，默认参数静态绑定**；`Base* p = new Derive(); p->show();` 调的是 `Derive::show`，但参数 `i` 用的是 `Base` 声明的 `10` —— 输出 `call Derive::show i:10`
+
+```c++
+class Base
+{
+public:
+    virtual void show(int i = 10)
+    cout << "call Base::show i:" << i << endl;
+};
+
+class Derive : public Base
+{
+public:
+void show(int i = 20)
+cout << "call Derive::show i:" << i << endl;
+};
+
+int main()
+{
+    Base *p = new Derive();//虚析构函数
+    p->show(); // 动态绑定 p-> Derive
+    delete p;
+    return 0;
+}
+```
+
+```c++
+#include <iostream>
+using namespace std;
+
+class Base
+{
+public:
+    // 注意：虚函数使用默认参数，且权限为 public
+    virtual void show() 
+    {
+        cout << "call Base::show i:" << i << endl;
+    }
+    virtual ~Base() {} 
+};
+
+class Derive : public Base
+{
+private: // 注意：派生类中改成了 private
+    // 重写了虚函数
+    void show() 
+    {
+        cout << "call Derive::show i:" << i << endl;
+    }
+};
+
+int main()
+{
+    // 1. 基类指针指向派生类对象
+    Base *p = new Derive(); 
+
+    /* 
+     * 编译阶段（静态绑定）：
+     * 编译器看到 p 是 Base* 类型，检查 Base::show 的访问权限。
+     * 因为 Base::show 是 public，所以编译通过。
+     
+     * 运行阶段（动态绑定）：
+     * 通过 p 对象的 vfptr 找到 Derive 的虚函数表。
+     * 执行 vftable 中的 Derive::show 函数。
+     * 如果两个访问权限互换，则不能运行。
+     */
+    p->show(); 
+
+    delete p;
+    return 0;
+}
+```
+
+```c++
+#include <iostream>
+#include <cstring>
+using namespace std;
+
+class Base
+{
+public:
+    Base()
+    {
+        cout << "call Base()" << endl;
+        clear();
+    }
+    void clear() { memset(this, 0, sizeof(*this)); } // 核心破坏点
+    virtual void show()
+    {
+        cout << "call Base::show()" << endl;
+    }
+};
+
+class Derive : public Base
+{
+public:
+    Derive()
+    {
+        cout << "call Derive()" << endl;
+    }
+    void show() override
+    {
+        cout << "call Derive::show()" << endl;
+    }
+};
+
+int main()
+{
+    Base *pb1 = new Base();
+    pb1->show();   // 崩溃点 1
+    /*
+    第一层（现象）：因为对象的虚函数表指针 vfptr 被置为了空指针。调用虚函数时，程序试图去空指针指向的				 虚表里找函数地址，从而触发了段错误。
+	第二层（原因）：因为在 Base 的构造函数中，调用了 clear() 里的 memset(this, 0, 							 sizeof(*this))，把整个对象的内存清零了。
+     */
+    delete pb1;
+
+    Base *pb2 = new Derive();
+    // 等价于：
+    // 1. 申请内存
+    // 2. pb2 = 内存地址
+    // 3. 调用 Base::Base() -> 这里 vfptr 被设为 Base 的虚表，然后 memset 全部清零
+    // 4. 调用 Derive::Derive() -> 这里 vfptr 被重新设为 Derive 的虚表
+    pb2->show();
+    delete pb2;
+
+    return 0;
+}
+```
+
+### 23.虚基类 vbptr和vbtable
+
+cl 源文件名 /d1reportSingleClassLayout类名   		查看类的结构
+
+抽象类(有纯虚函数的类) / 虚基类
+		virtual
+		1.修饰成员方法是虚函数
+		2.可以修饰继承方式，是虚继承。被虚继承的类，称作虚基类
+
+**`vbptr` (Virtual Base Pointer)**：虚基类指针。它是**对象内存中的隐藏成员**，就像 `vfptr` 一样。它指向 		`vbtable`。
+
+**`vbtable` (Virtual Base Table)**：虚基类表。它是**类级别的全局数组**。里面存放着**偏移量**，记录了当前		类对象到虚基类对象子部分的**内存偏移**。
 
 
 
-23.虚基类 vbptr和vbtable
+## 24.菱形继承的问题：
+
+![image-20261120200927069](c++笔记.assets/image-20261120200927069.png)
 
 
 
-24.RTTI
+1. **数据冗余**：D的对象里存了**两份**A的成员变量，浪费内存。
+2. **二义性（报错）**：代码里写 `d.a = 10;` 编译器会报错，因为它不知道你是给B里的那个a赋值，还是给C里的那个a赋值。
+
+![image-20261120201127024](c++笔记.assets/image-20261120201127024.png)
+
+图中A的成员必须由D来初始化，因为A的成员离D更近，并且为了解决二义性的问题，需要用虚基类来解决，也就是B和C必须去继承A的虚基类。
+
+## 25.C++四种类型强转：
 
 
 
-25.C++四种类型强转
-
-
-
-26.继承多态常见笔试面试题分享
+26.
 
 
 
