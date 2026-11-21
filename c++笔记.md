@@ -1076,7 +1076,7 @@ int main()
 }
 ```
 
-### 3).vectorr容器解决迭代器失效：
+### 3).vector容器解决迭代器失效：
 
 ```c++
 #include <iostream>
@@ -2047,7 +2047,7 @@ int main()
 }
 ```
 
-### 23.虚基类 vbptr和vbtable
+## 23.虚基类 vbptr和vbtable:
 
 cl 源文件名 /d1reportSingleClassLayout类名   		查看类的结构
 
@@ -2077,9 +2077,122 @@ cl 源文件名 /d1reportSingleClassLayout类名   		查看类的结构
 
 ## 25.C++四种类型强转：
 
+ int a= (int)b;
+		const_cast ：去掉（指针或引用）常量属性的一个类型转换
+		static_cast：提供编译器认为安全的类型转换（没有任何联系的类型之间的转换就被否定了)
+		reinterpret_cast:类似于c风格的强制类型转换
+		dynamic_cast：主要用在继承结构中，可以支持RTTI类型识别的上下转换
+
+```c++
+        const int a = 10;
+        int *p1 = (int*)&a;
+        int *p2 = const_cast<int*>(&a);
+        const_cast<这里面必须是指针或者引用类型 int* int&>
+        int b = const_cast<int>(a);
+```
+
+```c++
+#include <iostream>
 
 
-26.
+class Base
+{
+public:
+    virtual void func() = 0;
+};
+
+class Derivel : public Base
+{
+public:
+    void func() { std::cout << "call Derivel::func" << std::endl; }
+};
+
+class Derive2 : public Base
+{
+public:
+    void func() { std::cout << "call Derive2::func" << std::endl; }
+    void derive02func()
+    {
+        std::cout << "call Derive2::derive02func" << std::endl;
+    }
+};
+
+
+void showFunc(Base *p)
+{
+    // dynamic_cast会检查p指针是否指向的是一个Derive2类型的对象?
+    //p->vfptr->vftable RTTI信息 如果是，dynamic_cast转换类型成功，
+    // 返回Derive2对象的地址，给pd2;否则返回nul1ptr
+    Derive2 *pd2 = dynamic_cast<Derive2*>(p);
+    if (pd2 != nullptr)
+    {
+        pd2->derive02func();
+    }
+    else
+    p->func();//动态绑定 *p的类型 Derive2 derive02func
+}
+
+int main()
+{
+    Derivel d1;
+    Derive2 d2;
+    showFunc(&d1);
+    showFunc(&d2);
+    return 0;
+}
+```
+
+
+
+## 26.STL:
+
+### 一.标准容器:
+
+#### 	1.顺序容器:
+
+##### 			1).vector:向量容器
+
+底层数据结构：动态开辟的数组，每次以原来空间大小的2倍进行扩容的
+
+vector<int>vec; 
+	增加：
+		vec.push_back(20)；末尾添加元素o(1) 导致容器扩容
+		vec.insert(it，20)；it迭代器指向的位置添加一个元素20 0(n) 导致容器扩容
+	删除：
+		vec.pop_back()；末尾删除元素 o(1)
+		vec.erase(it)；删除it迭代器指向的元素o(n)
+	查询：
+		operator[]下标的随机访问vec[5] 0(1)
+		iterator迭代器进行遍历
+		find, for_each
+		for_each =>通过iterator来实现的
+		注意：对容器进行连续插入或者删除操作(insert/erase)，一定要更新代器，否则第一次insert或者erase					完成，迭代器就失效了
+	常用方法介绍
+		size()
+		empty()
+		reserve(20):vector预留空间的		只给容器底层开辟指定大小内存空间，并不会添加新元素
+		resize(20):容器扩容用的				  不只给容器底层开辟指定大小内存空间，而且不会添加新元素
+		swap：两个容器进行元素交换
+
+#### 	2.容器适配器:
+
+#### 	3.关联容器:
+
+##### 		1).无序关联容器:	链式哈希表  增删改O(1)
+
+##### 		2).有序关联容器:	红黑树	增删查O(log2n)
+
+### 二.近容器:
+
+### 三.迭代器:
+
+### 四.函数对象：
+
+### 五.泛型算法:
+
+
+
+
 
 
 
