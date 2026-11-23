@@ -1,4 +1,4 @@
-# 									c++笔记
+# 									c++基础笔记
 
 ## 1.一二级指针的转换：
 
@@ -2174,27 +2174,366 @@ vector<int>vec;
 		resize(20):容器扩容用的				  不只给容器底层开辟指定大小内存空间，而且不会添加新元素
 		swap：两个容器进行元素交换
 
+```c++
+#include <vector>
+#include <iostream>
+int main()
+{
+    std::vector<int> vec;
+    for(int i=0;i<10;i++)
+    {
+        vec.push_back(rand()%100+1);
+    }
+    for(auto i : vec)
+    {
+        std::cout<<i<<" ";
+    }
+    std::cout<<"\n";
+
+
+
+#if 0
+    //给 vector 容器中所有的奇数前面，都添加一个比它小 1 的偶数
+    auto it1 = vec.begin();
+    for(auto i : vec)
+    {
+        std::cout<<i<<" ";
+    }
+    std::cout<<"\n";
+    
+    for(;it1 != vec.end() ;++it1)
+    {
+        if(*it1 % 2 != 0)
+        {
+            it1 = vec.insert(it1 , *it1 - 1);
+            ++it1;
+        }
+    }
+    for(auto i : vec)
+    {
+        std::cout<<i<<" ";
+    }
+    std::cout<<"\n";
+#endif
+
+
+#if 0
+    //通过迭代器遍历vector容器完成偶数的删除
+    auto it2 = vec.begin();
+    for( ;it2 != vec.end();)
+    {
+        if(*it2 % 2 == 0)
+        {
+            it2 = vec.erase(it2);
+        }
+        else 
+        ++it2;
+    }
+
+    for(auto i : vec)
+    {
+        std::cout<<i<<" ";
+    }
+    std::cout<<"\n";
+#endif    
+    return 0;
+}
+```
+
+##### 2).deque:**双端都可进出的序列容器**
+
+deque是一个二维的
+
+第一维是按照二倍扩容的，然后第二维放在第一维的中间，方便前后都可以插入元素
+
+怎么放呢？oldsize / 2 就是扩容后放的位置
+
+![image-20261122104502713](c++笔记.assets/image-20261122104502713.png)
+
+![image-20261122104540567](c++笔记.assets/image-20261122104540567-17953155451431.png)
+
+**两端插入操作：**
+
+- `push_back(elem);`          //在容器尾部添加一个数据
+- `push_front(elem);`        //在容器头部插入一个数据
+- `pop_back();`                   //删除容器最后一个数据
+- `pop_front();`                 //删除容器第一个数据
+
+指定位置操作：
+
+* `insert(pos,elem);`         //在pos位置插入一个elem元素的拷贝，返回新数据的位置。
+* `insert(pos,n,elem);`     //在pos位置插入n个elem数据，无返回值。
+* `insert(pos,beg,end);`    //在pos位置插入[beg,end)区间的数据，无返回值。
+* `clear();`                           //清空容器的所有数据
+* `erase(beg,end);`             //删除[beg,end)区间的数据，返回下一个数据的位置。
+* `erase(pos);`                    //删除pos位置的数据，返回下一个数据的位置。
+
+**数据存取：**
+
+* `at(int idx); `     //返回索引idx所指的数据
+* `operator[]; `       //返回索引idx所指的数据
+* `front(); `            //返回容器中第一个数据元素
+* `back();`              //返回容器中最后一个数据元素
+
+##### 3).list：链表容器 
+
+底层数据结构：双向的循环链表 		pre data next
+		list<int> mylist;
+	增加:
+		mylist.push_back(20)； 	从末尾添加元素o(1)
+		mylist.push_front(20); 	从首部添加元素 0(1) // vec.insert(vec.begin(), 20) 0(n)
+		mylistinsert(it，20)；	it指向的位置添加元素 o(1) // 链表中进行insert的时候，先要进行一个query查													询操作，对于链表来说，查询操作效率就比较慢了
+	删除:
+		mylistpop_back()； 从末尾删除元素o(1)
+		mylistpop_front();从首部删除元素o(1)
+		mylist.erase(it)； 从it指向的位置删除元素o(1)
+	查询搜索:
+		iterator(连续的insert和erase一定要考虑迭代器失效的问题)I
+
+##### 4).三者比较：
+
+vector特点：动态数组，内存是连续的，2倍的方式进行扩容， vector<int> vec; 0-1-2-4-8								...reserve(20)
+
+deque特点：动态开辟的二维数组空间，第二维是固定长度的数组空间，扩容的时候（第一维的数组进行								2倍扩容)
+		面经问题：
+
+deque底层内存是否是连续的? 		并不是,每一第二维是连续的，
+
+###### **vector和deque之间的区别?**
+
+1.底层数据结构:
+		2.前中后插入删除元素的时间复杂度：末尾 o(1) 		前 deque 0(1) vector (n)
+		3.对于内存的使用效率：vector 需要的内存空间必须是连续的 deque 可以分块进行数据存储，不需要内			存空间必续是一块连续的。
+
+4.在中间进行insert或者erase，vector和deque它们的效率谁能好一点(vector)？谁能差一点(deque)?
+
+​	由于deque的第二维内存空间不是连续的，所以在deque中间进行元素的insert或者erase，造成元素			移动的时候比vector要慢,也就是deque需要借用指针进行寻址。
+
+###### vector和list之间的区别：
+
+vector和list之间的区别? 数组:增加删除O(n) 查询O(n) 随机访问O(1) 链表：(考虑搜索的时间)增加删除															O(1)
+		1底层数据结构：		数组 		双向循环链表
+
 #### 	2.容器适配器:
+
+##### 	怎么理解这个适配器？
+
+1.适配器底层没有自己的数据结构，它是另一个容器的封装，它的方法全部由底层依赖的容器进行实现
+
+2.没有实现自己的迭代器
+
+```c++
+template<typename T, typename Container=deque<T>>
+
+class Stack
+{
+public:
+	void push(const T &val) { con.push back(val); )
+	void pop() { con.pop_back();)
+	T top()const { return con.back();)
+private:
+	Container con;
+};
+int main()
+{
+    return 0;
+}
+```
+
+**stack:** 	push入栈	 pop出栈 	top查看栈顶元素 	empty判断栈空 	size返回元素个数
+
+**queue:** 	push入队 pop出队 front查看队头元素 back查看队尾元素 empty判断队空 size返回元素个数
+
+queue => deque 为什么不依赖vector呢?？？
+		stack => deque 为什么不依赖vector呢?？?
+1.vector的初始内存使用效率太低了! 没有deque好 
+2.对于queue来说，需要支持尾部插入，头部删除，0(1) 如果queue依赖vector，其出队效率很低
+3.vector需要大片的连续内存，而deque只需要分段的内存，当存储大量数据时，显然deque对于内存的利用率更好一些
+
+**priority_queue:** 	push入队 pop出队 top查看队顶元素 empty判断队空 size返回元素个数默认：大根堆
+
+priority_queue => vector 为什么依赖vcetor?
+
+底层默认把数据组成一个大根堆结构 在一个内存连续的数组上构建一个大根堆或者小根堆的
+
+它是根据根节点 I，判断它下面的各个节点，也就是 2I+1 和 2I+2
+
+
 
 #### 	3.关联容器:
 
+1.各个容器底层的数据结构  O(1)  O(log2n)
+
+2.常用增删查方法
+			增加:insert(val)
+			遍历：iterator自己搜索， 调用find成员方法
+			删除:erase(key) erase(it)
+
 ##### 		1).无序关联容器:	链式哈希表  增删改O(1)
+
+set:集合 key 
+
+unordered_set 单重集合
+
+unordered_multiset 多重集合
+
+```c++
+#include <iostream>
+#include <set>
+#include <map>
+#include <unordered_set>
+#include <unordered_map>
+
+int main()
+{
+    std::unordered_set<int> set1;
+    for(int i=0;i<50;i++)
+    {
+        set1.insert(rand() % 20 + 1);
+    }
+
+    std::cout<<set1.size()<<std::endl;
+    std::cout<<set1.count(15)<<std::endl;
+
+
+    auto it1 = set1.begin();
+    for (; it1 != set1.end(); ++it1)
+    {
+        std::cout << *it1 << " ";
+    }
+    std::cout << std::endl;
+    
+    set1.erase(20);//按key值删除元素
+    for (it1 = set1.begin(); it1 != set1.end(); )
+    {
+        if (*it1 == 30)
+        it1  = set1.erase(it1);// 调用erase,it1迭代器就失效了
+        else ++it1;
+    }
+
+    //用find函数进行删除
+    it1 = set1.find(20);
+    if(it1 != set1.end())
+    {
+        set1.erase(it1);
+    }
+
+    for(auto i : set1)
+    {
+        std::cout<<i<<" ";
+    }
+    return 0;
+}
+```
+
+map:映射表[key,value]
+
+unordered_map 单重映射表
+
+unordered_multimap 多重映射表
 
 ##### 		2).有序关联容器:	红黑树	增删查O(log2n)
 
 ### 二.近容器:
 
+
+
 ### 三.迭代器:
 
-### 四.函数对象：
+const_iterator:常量的正向迭代器只能读，而不能写了
+		iterator:普通的正向迭代器
+		reverse_iterator:普通的反向迭代器
+		const_reverse_iterator:常量的反向迭代器
+
+### 四.函数对象(仿函数)：
+
+定义：把有operator()小括号运算符重载函数的对象称作函数对象或者称作仿函数
+
+
+
+1.通过函数指针来调用函数是没有办法内联的,效率很低，因为有函数调用开销
+
+```c++
+#include <iostream>
+
+template<typename T>
+bool my_greater(T a ,T b)
+{
+    return a > b;
+}
+template<typename T>
+bool my_less(T a , T b)
+{
+    return a < b;
+}
+
+template<typename T , typename Compare>
+bool compare(T a , T b , Compare comp)
+{
+    //通过函数指针来调用函数是没有办法内联的,效率很低，因为有函数调用开销
+    return comp(a , b);
+}
+
+int main()
+{
+    std::cout<<compare(10 , 20 ,my_greater<int>)<<std::endl;
+    std::cout<<compare(10 , 20 ,my_less<int>)<<std::endl;
+    return 0;
+}
+```
+
+1.通过函数对象调用operator()，可以省略函数的调用开销，比通过函数指针调用函数(不能够in1ine内联调用）效率高
+		2.因为函数对象是用类生成的，所以可以添加相关的成员变量，用来记录函数对象使用时更多的信息
+
+```C++
+#include <iostream>
+
+template<typename T>
+struct my_greater
+{
+    bool operator()(T a ,T b)
+    {
+        return a > b;
+    }
+};
+
+template<typename T>
+struct my_less
+{
+    bool operator()(T a ,T b)
+    {
+        return a < b;
+    }
+};
+
+template<typename T, typename Compare>
+bool compare(T a, T b, Compare comp)
+{
+    return comp(a , b);
+}
+
+int main()
+{
+    std::cout<<compare(10 , 20 ,my_greater<int>())<<std::endl;
+    std::cout<<compare(10 , 20 ,my_less<int>())<<std::endl;
+    return 0;
+}
+```
+
+
 
 ### 五.泛型算法:
 
+sort,find,find_if,binary_search,for_each
+		特点一：泛型算法的参数接收的都是迭代器
+		特点二：泛型算法的参数还可以接收函数对象
+	绑定器(适配器) + 二元函数对象---> 	一元函数对象
+		bind1st:把二元函数对象的operator()(a，b)的第一个形参绑定起来
+		bind2nd:把二元函数对象的operator()(ab)的第二个形参绑定起来
 
 
 
-
-
+# c++高级笔记
 
 
 
