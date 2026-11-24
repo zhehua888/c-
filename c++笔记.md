@@ -35,6 +35,33 @@
 
 ​		int a =10；//左值，它有内存，有名字，值可以修改的
 
+```c++
+#include <iostream>
+using namespace std;
+
+
+
+int main()
+{
+    int a = 10;
+    int &b =a;//左值：有内存、有名字右值：没名字(临时量)
+    //int &&c = a；// 无法将左值绑定到右值引用
+    /* int tmp = 20;
+    const int &c = tmp;
+    */
+    const int &c = 20;// 不能用左值引用绑定一个右值
+    /*
+    int tmp = 20;
+    int &&d = tmp;
+    */
+    int &&d = 20;//可以把一个右值绑定到一个右值引用上
+    int &f = d; // 一个右值引用变量，本身是一个左值
+    return 0;
+}
+```
+
+
+
 ## 3.const, 一级指针， 引用的结合引用
 
 ```c++
@@ -2535,11 +2562,331 @@ sort,find,find_if,binary_search,for_each
 
 # c++高级笔记
 
+## 一：对象的应用优化、右值引用的优化
+
+### 1.对象的使用在背后调用了哪些方法？
+
+#### 			ex1：
+
+```c++
+#include <iostream>
+using namespace std;
+
+class Test
+{
+public:
+    Test(int a = 10) : ma(a)
+    {
+        cout<<"Test()"<<endl;
+    }
+    Test(const Test &t) : ma(t.ma)
+    {
+        cout<<"const Test&"<<endl;
+    }
+    Test& operator=(const Test &t)
+    {
+        cout<<"operator="<<endl;
+        ma = t.ma;
+        return *this;
+    }
+    ~Test()
+    {
+        cout<<"~Test()"<<endl;
+    }
+private:
+    int ma;
+};
+int main()
+{
+    Test t1;
+    Test t2(t1);
+    Test t3 = t1;
+    // Test(20)     显示生成临时对象
+    //临时对象用于拷贝构造函数，编译器会自动优化成初始化
+    //C++编译器对于对象构造的优化：用临时对象生成新对象的时候，临时对象
+    //就不产生了，直接构造新对象就可以了
+    Test t4 = Test(20);
+    cout<<"---------"<<endl;
+
+    t4 = t2;
+    //构造显示临时对象，然后调用运算符重载函数
+    //临时对象的析构在语句结束后直接析构
+    t4 = Test(30); 
+    t4 = (Test)30;      //int->Test
+
+    //隐式生成临时对象
+    t4 = 30;
+    cout<<"---------"<<endl;
+
+    //语句结束后，p指向的是一个已经析构的临时对象
+    Test *p = &Test(40);
+    //引用不会，相当于给临时对象起了一个名字
+    const Test &ref = Test(50);
+
+    return 0;
+}
+```
+
+#### 			ex2：
+
+```c++
+#include <iostream>
+using namespace std;
+
+class Test
+{
+public:
+    Test(int a = 10 , int b = 10) : ma(a) , mb(b)
+    {
+        cout<<"Test()"<<endl;
+    }
+    Test(const Test &t) : ma(t.ma) , mb(t.mb)
+    {
+        cout<<"Test(const Test&)"<<endl;
+    }
+    Test& operator=(const Test &t)
+    {
+        cout<<"operator="<<endl;
+        ma = t.ma;
+        mb = t.mb;
+        return *this;
+    }
+    ~Test()
+    {
+        cout<<"~Test()"<<endl;
+    }
+private:
+    int ma;
+    int mb;
+};
+Test t1(10 , 10);       //1.Test()
+int main()
+{
+    Test t2(20, 20);    //3.Test()
+    Test t3 = t2;       //4.Test(const Test&)
+    //静态变量在程序运行的时候，内存已经存在于数据段了
+    //但是初始化是在运行到它的时候
+    static Test t4 = Test(30, 30);      //5.Test()
+    t2 = Test(40, 40);      //6.Test()  operator=  ~Test()
+    t2 = (Test) (50, 50); //逗号表达式，7.Test()  operator= ~Test()
+    t2 = 60;        //隐式对象  8.Test()  operator= ~Test()
+    Test *p1 = new Test(70, 70);    //9.Text()
+    Test *p2 = new Test[2];     //10.Text() Test()
+    //Test *p3 = &Test(80, 80);   //11.Test() ~Test()  XXX会有错
+    const Test &p4 = Test(90, 90);  //12.Test()
+    delete p1;      //13.~Test()
+    delete[]p2;     //14.~Test() ~Test()
+
+    return 0;
+}
+Test t5(100 , 100);     //2.Test()
+```
+
+### 2.函数对象在调用过程中，对象用了哪些方法？
+
+```c++
+#include <iostream>
+using namespace std;
+
+class Test
+{
+public:
+    Test(int a = 10) : ma(a)
+    {
+        cout<<"Test()"<<endl;
+    }
+    Test(const Test &t) : ma(t.ma)
+    {
+        cout<<"const Test&"<<endl;
+    }
+    Test& operator=(const Test &t)
+    {
+        cout<<"operator="<<endl;
+        ma = t.ma;
+        return *this;
+    }
+    ~Test()
+    {
+        cout<<"~Test()"<<endl;
+    }
+    int getData() const 
+    {
+        return ma;
+    }
+private:
+    int ma;
+};
+
+//不能返回局部变量的引用或指针
+Test GetObject(Test t)   
+{
+    int val = t.getData();
+    Test tem(val);
+    return tem;
+}
+
+int main()
+{
+    Test t1;
+    Test t2;
+    t2 = GetObject(t1);
+    return 0;
+}
+```
+
+![image-20261124174258278](c++笔记.assets/image-20261124174258278-17955133799171.png)
+
+
+
+### 3.总结三条对象优化的原则：
+
+1.函数参数传递过程中，对象优先按引用传递，不要按值传递
+		2.函数返回对象的时候，应该优先返回一个临时对象，而不要返回一个定义过的对象
+		3.接收返回值是对象的函数调用的时候，优先按初始化的方式接收，不要按赋值的方式接收
+
+![image-20261124195222723](c++笔记.assets/image-20261124195222723.png)
+
+### 4.添加右值引用的拷贝构造函数和赋值重载函数
+
+**移动构造 & 移动赋值（右值引用）的优势：**
+
+1. **避免深拷贝**：直接转移资源（指针）的所有权，而不是复制资源数据。
+2. **性能极高**：时间复杂度从拷贝的 `O(N)` 降低到了指针赋值的 `O(1)`。
+3. **安全处理悬空指针**：转移资源后，务必将原临时对象的指针置为 `nullptr`，防止原对象析构时重复释放内存（Double Free）。
+4. **配合编译器优化**：虽然有时编译器（RVO/NRVO）会直接省略临时对象的创建，但在无法优化（或未开启优化）的复杂场景下，移动语义是保证性能的底线。
+
+```c++
+#include <iostream>
+using namespace std;
+#include <cstring>
+
+class CMyString
+{
+public:
+    CMyString(const char *str = nullptr)
+    {
+        cout << "CMyString(const char*)" << endl;
+        if(str != nullptr)
+        {
+            mstr = new char[strlen(str) + 1];
+            strcpy(mstr , str);
+        }
+        else
+        {
+            mstr = new char[1];
+            *mstr = '\0';
+        }
+    }
+    ~CMyString()
+    {
+        cout << "~CMyString()" << endl;
+        delete []mstr;
+        mstr = nullptr;
+
+    }
+    CMyString(const CMyString &p)
+    {
+        cout << "CMyString(const CMyString&)" << endl;
+        mstr = new char[strlen(p.mstr) + 1];
+        strcpy(mstr , p.mstr);
+    }
+    CMyString(CMyString &&p)
+    {
+        cout << "CMyString(const CMyString&&)" << endl;
+        mstr = p.mstr;
+        p.mstr = nullptr;
+    }
+    CMyString &operator=(const CMyString &p)
+    {
+        if(this == &p)
+        {
+            return *this;
+        }
+        cout<<"&operator=(CMyString &)"<<endl;
+        delete []mstr;
+        mstr = new char[strlen(p.mstr) + 1];
+        strcpy(mstr , p.mstr);
+        return *this;
+    }
+    CMyString &operator=(CMyString &&p)
+    {
+        if(this == &p)
+        {
+            return *this;
+        }
+        cout<<"&operator=(CMyString &&)"<<endl;
+        delete []mstr;
+        mstr = p.mstr;
+        p.mstr = nullptr;
+        return *this;
+    }
+    const char *c_str() const 
+    {
+        return mstr;
+    }
+private:
+    char *mstr;
+};
+
+CMyString GetString(CMyString &str)
+{
+    const char* pstr = str.c_str();
+    CMyString tmpStr(pstr);
+    return tmpStr;
+}
+
+int main()
+{
+    CMyString str1("aaaaaaaaaaaaaaaaaaaa");
+    CMyString str2;
+    str2 = GetString(str1);
+    cout << str2.c_str() << endl;
+    
+    CMyString str1 = "aaa";
+    vector<CMyString> v1;
+    v1.reserve(10);
+    v1.push_back(str1);		//调用左值引用拷贝构造函数
+    v1.push_back(CMyString("bbb"));	//调用右值引用拷贝构造函数
+    return 0;
+}
+```
+
+
+
+### 5.move移动语义和forward类型完美转发
+
+ move(左值)：移动语义 ，得到右值类型
+		 forward:类型完美转发，能够识别左值和右值类型
+
+
+
+## 二:智能指针
 
 
 
 
 
+## 三:绑定器和函数对象、lambda表达式
+
+## 四:C++11内容汇总、多线程应用实践
+
+## 五:设计模式
+
+## 六:面向对象编程实践 
+
+### 	1.深度遍历搜索迷宫路径
+
+### 	2.广度遍历搜索迷宫路径找最短路径
+
+### 	3.大数加减法
+
+### 	4.海量数据查重以及求top k问题
+
+### 	5.数字化男女匹配问题
+
+## 七:校招C++面经讲解
+
+## 八:应聘C++研发岗简历该怎么写
 
 
 
