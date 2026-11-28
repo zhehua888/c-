@@ -2862,7 +2862,333 @@ int main()
 
 ## 二:智能指针
 
+#### 	1.自己实现智能指针:
 
+```c++
+#include <iostream>
+using namespace std;
+
+template <class T>
+class CSmartptr
+{
+public:
+    CSmartptr(T *ptr = nullptr) : mptr(ptr)
+    {
+
+    }
+    T& operator*()
+    {
+        return *mptr;
+    }
+    T* operator->()
+    {
+        return mptr;
+    }
+    ~CSmartptr()
+    {
+        delete mptr;
+    }
+
+private:
+    T *mptr;
+};
+int main()
+{
+
+    CSmartptr<int> ptr(new int);
+
+    *ptr = 20;
+
+    struct Test
+    {
+        void test()
+        {
+            cout<<"create test"<<endl;
+        }
+    };
+    CSmartptr<Test> ptr1(new Test());
+    ptr1->test();
+    return 0;
+}
+```
+
+#### 2.不带引用计数的智能指针：
+
+auto_ptr:C++库里面		（不推荐）
+		C++11新标准:
+		scoped_ptr:没有提供右值拷贝构造函数和赋值重载函数
+		unique_ptr:提供了优质拷贝构造函数和赋值重载函数
+
+#### 3.带引用计数的智能指针
+
+shared_ptr和weak _ptr
+		带引用计数：多个智能指针可以管理同一个资源 
+		带引用计数：给每一个对象资源，匹配一个引用计数;
+
+智能指针  =》  资源的时候》计数+1
+		智能指针  =》  不使用资源的时候   =》  引用计数-1   =》  !=0的时候   资源释放了
+
+```c++
+#include <iostream>
+#include <memory>
+using namespace std;
+
+
+template<class T>
+class CntPtr
+{
+public:
+    CntPtr(T *ptr = nullptr)
+            : mptr(ptr)
+        {
+            if(mptr != nullptr)
+            {
+                mcount = 1;
+            }
+        }
+    void addCnt()
+    {
+        mcount++;
+    }
+    int delCnt()
+    {
+        return --mcount;
+    }
+private:
+    T *mptr;
+    int mcount;
+};
+
+template <class T>
+class CSmartptr
+{
+public:
+    CSmartptr(T *ptr = nullptr) : mptr(ptr)
+    {
+        mcntptr = new CntPtr<T>(mptr);
+    }
+    T& operator*()
+    {
+        return *mptr;
+    }
+    T* operator->()
+    {
+        return mptr;
+    }
+
+    CSmartptr(const CSmartptr &p)
+                : mptr(p.mptr)
+                , mcntptr(p.mcntptr)
+    {
+        if(mptr != nullptr)
+        {
+            mcntptr->addCnt();
+        }
+    }
+    CSmartptr& operator=(const CSmartptr &p)
+    {
+        if(this == &p)
+        {
+            return *this;
+        }
+        if(0 == mcntptr->delCnt())
+        {
+            delete mptr;
+        }
+        mptr = p.mptr;
+        mcntptr = p.mcntptr;
+        mcntptr->addCnt();
+        return *this;
+    }
+    ~CSmartptr()
+    {
+        if(0 == mcntptr->delCnt())
+        {
+            delete mptr;
+            mptr = nullptr;
+        }
+    }
+
+private:
+    T *mptr;
+    CntPtr<T> *mcntptr;
+};
+
+
+int main()
+{
+    CSmartptr<int> p1(new int);
+    CSmartptr<int> p2(p1);
+    CSmartptr<int> p3;
+    p3 = p2;
+    *p1 = 20;
+    cout<<*p2<<" "<<*p3<<endl;
+    return 0;
+}
+```
+
+##### shared_ptr:
+
+ 强智能指针,可以改变资源的引用计数
+
+##### weak_ptr:
+
+弱智能指针,不会改变资源的引用计数
+
+weak_ptr  =>  shared_ptr  =>  资源（内存）
+
+##### 问题：
+
+**强智能指针循环引用（交叉引用）是什么问题？什么结果？怎么解决?**
+
+造成new出来的资源无法释放，造成资源泄漏问题 
+
+定义对象的时候使用强智能指针，引用对象的时候使用弱智能指针
+
+**弱智能指针只是一个观察者，不能去改变资源，也不能去调用资源，也不能访问资源**
+
+**但可以提升为强智能指针**
+
+```c++
+	shared ptr<A> ps  = _ptra.lock();// 提升方法
+```
+
+
+
+```c++
+#include <iostream>
+using namespace std;
+#include <memory>
+
+class B;
+class A
+{
+public:
+    A()
+    {
+        cout<<"A()"<<endl;
+    }
+    ~A()
+    {
+        cout<<"~A()"<<endl;
+    }
+    shared_ptr<B> _ptrb;
+};
+
+class B
+{
+public:
+    B()
+    {
+        cout<<"B()"<<endl;
+    }
+    ~B()
+    {
+        cout<<"~B()"<<endl;
+    }
+    shared_ptr<A> _ptra;
+};
+int main()
+{
+    shared_ptr<A> pa(new A());
+    shared_ptr<B> pb(new B());
+
+    pa->_ptrb = pb;
+    pb->_ptra = pa;
+    
+    //二者引用都为2，不能释放
+    cout<<pa.use_count()<<endl;
+    cout<<pb.use_count()<<endl;
+    
+    return 0;
+}
+```
+
+```c++
+class B;
+class A
+{
+public:
+    A()
+    {
+        cout<<"A()"<<endl;
+    }
+    ~A()
+    {
+        cout<<"~A()"<<endl;
+    }
+    weak_ptr<B> _ptrb;
+};
+
+class B
+{
+public:
+    B()
+    {
+        cout<<"B()"<<endl;
+    }
+    ~B()
+    {
+        cout<<"~B()"<<endl;
+    }
+    weak_ptr<A> _ptra;
+};
+```
+
+#### 4.多线程访问共享对象的线程安全问题：
+
+```c++
+#include <iostream>
+using namespace std;
+#include <memory>
+#include <thread>
+
+class B;
+class A
+{
+public:
+    A()
+    {
+        cout<<"A()"<<endl;
+    }
+    ~A()
+    {
+        cout<<"~A()"<<endl;
+    }
+    void test() { cout<<"非常好用的方法\n"<<endl; }
+    weak_ptr<B> _ptrb;
+};
+
+void handler01(weak_ptr<A> qw)
+{
+    //Q，访问 A 对象的时候，必须要判断一下这个指针是否存活
+    shared_ptr<A> qs = qw.lock();
+    if(qs != nullptr)
+    {
+        qs->test();
+    }
+    else
+    {
+        cout<<"A已经析构"<<endl;
+    }
+}
+
+int main()
+{
+    {
+        shared_ptr<A> p(new A());
+        thread t1(handler01 , weak_ptr<A>(p));
+        t1.detach();
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+    }
+
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+    //t1.join();
+    return 0;
+}
+```
+
+#### 5.智能指针的删除器：
 
 
 
